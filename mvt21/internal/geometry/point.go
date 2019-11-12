@@ -33,6 +33,11 @@ func UnmarshalPoints(data []uint32, v geojson.Geometry, pos FromIntegers) error 
 		return err
 	}
 
+	if _, ok := v.(*RawShape); ok {
+		rv.Set(reflect.ValueOf(data))
+		return nil
+	}
+
 	n := len(data)
 	if n == 0 {
 		return fmt.Errorf("data len must be >= 1")
