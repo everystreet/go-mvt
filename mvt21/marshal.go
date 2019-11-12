@@ -2,6 +2,7 @@ package mvt21
 
 import (
 	"fmt"
+	"strings"
 
 	spec "github.com/everystreet/go-mvt/mvt21/internal/spec"
 	"github.com/golang/protobuf/proto"
@@ -27,11 +28,54 @@ func Marshal(layers Layers, opts ...MarshalOption) ([]byte, error) {
 			return nil, err
 		}
 
+		if err := marshalFeatures(data.Features, layer); err != nil {
+			return nil, err
+		}
+
 		tile.Layers[i] = layer
 		i++
 	}
 
 	return proto.Marshal(&tile)
+}
+
+func marshalFeatures(features []Feature, layer *spec.Tile_Layer) error {
+	layer.Features = make([]*spec.Tile_Feature, len(features))
+
+	for i, data := range features {
+		feature := &spec.Tile_Feature{}
+
+		tags, err := featureTags(data.Tags, *layer)
+		if err != nil {
+			return err
+		}
+		feature.Tags = tags
+
+		layer.Features[i] = feature
+	}
+
+	return nil
+}
+
+func featureTags(tags []string, layer spec.Tile_Layer) ([]uint32, error) {
+	indexes := make([]uint32, len(tags))
+
+	for i, tag := range tags {
+		hasKey := false
+		for pos, key := range layer.Keys {
+			if strings.EqualFold(key, tag) {
+				hasKey = true
+				indexes[i] = uint32(pos)
+				break
+			}
+		}
+
+		if !hasKey {
+			return nil, fmt.Errorf("layer does not contain tag key '%s'", tag)
+		}
+	}
+
+	return indexes, nil
 }
 
 func marshalKeyValues(metadata geojson.PropertyList, additional []metadata, layer *spec.Tile_Layer) error {
@@ -49,7 +93,18 @@ func marshalKeyValues(metadata geojson.PropertyList, additional []metadata, laye
 		kvs[metadata.key] = metadata.value
 	}
 
-	setKeyValues(kvs, layer)
+	keys := make([]string, len(kvs))
+	values := make([]*spec.Tile_Value, len(kvs))
+
+	var i int
+	for key, value := range kvs {
+		keys[i] = key
+		values[i] = value
+		i++
+	}
+
+	layer.Keys = keys
+	layer.Values = values
 	return nil
 }
 
@@ -144,21 +199,6 @@ func newLayer(name string, extent uint32) *spec.Tile_Layer {
 		Name:    &name,
 		Extent:  &extent,
 	}
-}
-
-func setKeyValues(kvs map[string]*spec.Tile_Value, layer *spec.Tile_Layer) {
-	keys := make([]string, len(kvs))
-	values := make([]*spec.Tile_Value, len(kvs))
-
-	var i int
-	for key, value := range kvs {
-		keys[i] = key
-		values[i] = value
-		i++
-	}
-
-	layer.Keys = keys
-	layer.Values = values
 }
 
 func keyValues(metadata []geojson.Property) (map[string]*spec.Tile_Value, error) {
