@@ -26,11 +26,18 @@ func TestMarshalLayers(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, tile.Layers, 2)
 
-	require.Equal(t, "layer1", tile.Layers[0].GetName())
-	require.Equal(t, uint32(4096), tile.Layers[0].GetExtent())
+	var layer1, layer2 *spec.Tile_Layer
+	for _, l := range tile.Layers {
+		switch l.GetName() {
+		case "layer1":
+			layer1 = l
+		case "layer2":
+			layer2 = l
+		}
+	}
 
-	require.Equal(t, "layer2", tile.Layers[1].GetName())
-	require.Equal(t, uint32(2048), tile.Layers[1].GetExtent())
+	require.Equal(t, uint32(4096), layer1.GetExtent())
+	require.Equal(t, uint32(2048), layer2.GetExtent())
 }
 
 func TestMarshalMetadata(t *testing.T) {
@@ -256,18 +263,18 @@ func TestMarshalFeatureTags(t *testing.T) {
 	require.Len(t, tile.Layers[0].Features, 1)
 	require.Len(t, tile.Layers[0].Features[0].Tags, 2)
 
-	var key1Pos, key2Pos *int
+	var key1Pos, key3Pos int
 	for i, key := range tile.Layers[0].Keys {
 		switch key {
 		case "key1":
-			key1Pos = &i
-		case "key2":
-			key2Pos = &i
+			key1Pos = i
+		case "key3":
+			key3Pos = i
 		}
 	}
 
-	require.Contains(t, tile.Layers[0].Features[0].Tags, uint32(*key1Pos))
-	require.Contains(t, tile.Layers[0].Features[0].Tags, uint32(*key2Pos))
+	require.Contains(t, tile.Layers[0].Features[0].Tags, uint32(key1Pos))
+	require.Contains(t, tile.Layers[0].Features[0].Tags, uint32(key3Pos))
 }
 
 func TestFeatureTagDoesNotExist(t *testing.T) {
