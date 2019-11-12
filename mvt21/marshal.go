@@ -42,8 +42,17 @@ func Marshal(layers Layers, opts ...MarshalOption) ([]byte, error) {
 func marshalFeatures(features []Feature, layer *spec.Tile_Layer) error {
 	layer.Features = make([]*spec.Tile_Feature, len(features))
 
+	ids := make(map[uint64]struct{})
 	for i, data := range features {
 		feature := &spec.Tile_Feature{}
+
+		if id, ok := data.ID.Get(); ok {
+			if _, ok = ids[id]; ok {
+				return fmt.Errorf("layer with ID '%d' already exists", id)
+			}
+			feature.Id = &id
+			ids[id] = struct{}{}
+		}
 
 		tags, err := featureTags(data.Tags, *layer)
 		if err != nil {
