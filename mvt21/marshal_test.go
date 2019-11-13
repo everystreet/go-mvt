@@ -230,71 +230,73 @@ func TestMarshalMetadata(t *testing.T) {
 }
 
 func TestMarshalFeatureTags(t *testing.T) {
-	data, err := mvt21.Marshal(mvt21.Layers{
-		"my_layer": {
-			Metadata: geojson.PropertyList{
-				{
-					Name:  "key1",
-					Value: "value",
+	t.Run("valid tags", func(t *testing.T) {
+		data, err := mvt21.Marshal(mvt21.Layers{
+			"my_layer": {
+				Metadata: geojson.PropertyList{
+					{
+						Name:  "key1",
+						Value: "value",
+					},
+					{
+						Name:  "key2",
+						Value: "value",
+					},
+					{
+						Name:  "key3",
+						Value: "value",
+					},
 				},
-				{
-					Name:  "key2",
-					Value: "value",
-				},
-				{
-					Name:  "key3",
-					Value: "value",
+				Features: []mvt21.Feature{
+					{
+						Tags: []string{"key1", "key3"},
+					},
 				},
 			},
-			Features: []mvt21.Feature{
-				{
-					Tags: []string{"key1", "key3"},
-				},
-			},
-		},
-	})
-	require.NoError(t, err)
+		})
+		require.NoError(t, err)
 
-	var tile spec.Tile
-	err = proto.Unmarshal(data, &tile)
-	require.NoError(t, err)
-	require.Len(t, tile.Layers, 1)
+		var tile spec.Tile
+		err = proto.Unmarshal(data, &tile)
+		require.NoError(t, err)
+		require.Len(t, tile.Layers, 1)
 
-	require.Len(t, tile.Layers[0].Features, 1)
-	require.Len(t, tile.Layers[0].Features[0].Tags, 2)
+		require.Len(t, tile.Layers[0].Features, 1)
+		require.Len(t, tile.Layers[0].Features[0].Tags, 2)
 
-	var key1Pos, key3Pos int
-	for i, key := range tile.Layers[0].Keys {
-		switch key {
-		case "key1":
-			key1Pos = i
-		case "key3":
-			key3Pos = i
+		var key1Pos, key3Pos int
+		for i, key := range tile.Layers[0].Keys {
+			switch key {
+			case "key1":
+				key1Pos = i
+			case "key3":
+				key3Pos = i
+			}
 		}
-	}
 
-	require.Contains(t, tile.Layers[0].Features[0].Tags, uint32(key1Pos))
-	require.Contains(t, tile.Layers[0].Features[0].Tags, uint32(key3Pos))
-}
-
-func TestMarshalFeatureTagDoesNotExist(t *testing.T) {
-	_, err := mvt21.Marshal(mvt21.Layers{
-		"my_layer": {
-			Metadata: geojson.PropertyList{
-				{
-					Name:  "key1",
-					Value: "value",
-				},
-			},
-			Features: []mvt21.Feature{
-				{
-					Tags: []string{"key2"},
-				},
-			},
-		},
+		require.Contains(t, tile.Layers[0].Features[0].Tags, uint32(key1Pos))
+		require.Contains(t, tile.Layers[0].Features[0].Tags, uint32(key3Pos))
 	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "does not contain tag key")
+
+	t.Run("invalid tag", func(t *testing.T) {
+		_, err := mvt21.Marshal(mvt21.Layers{
+			"my_layer": {
+				Metadata: geojson.PropertyList{
+					{
+						Name:  "key1",
+						Value: "value",
+					},
+				},
+				Features: []mvt21.Feature{
+					{
+						Tags: []string{"key2"},
+					},
+				},
+			},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "does not contain tag key")
+	})
 }
 
 func TestMarshalFeatureID(t *testing.T) {

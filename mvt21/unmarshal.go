@@ -106,6 +106,14 @@ func unmarshalFeatures(features []*spec.Tile_Feature, layer *Layer) error {
 			ids[*id] = struct{}{}
 		}
 
+		feature.Tags = make([]string, len(data.Tags))
+		for i, tag := range data.Tags {
+			if int(tag) >= len(layer.Metadata) {
+				return fmt.Errorf("tag key '%d' does not exist in layer", tag)
+			}
+			feature.Tags[i] = layer.Metadata[tag].Name
+		}
+
 		if err := unmarshalGeometry(*data, &feature); err != nil {
 			return err
 		}
