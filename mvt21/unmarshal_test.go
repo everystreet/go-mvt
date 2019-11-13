@@ -174,6 +174,64 @@ func TestUnmarshalMetadata(t *testing.T) {
 	}
 }
 
+func TestUnmarshalFeatureID(t *testing.T) {
+	t.Run("valid ID", func(t *testing.T) {
+		name, version, id, typ := "my_layer", uint32(2), uint64(67), spec.Tile_UNKNOWN
+		data, err := proto.Marshal(&spec.Tile{
+			Layers: []*spec.Tile_Layer{
+				{
+					Version: &version,
+					Name:    &name,
+					Features: []*spec.Tile_Feature{
+						{
+							Id:   &id,
+							Type: &typ,
+						},
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		layers, err := mvt21.Unmarshal(data)
+		require.NoError(t, err)
+		require.Len(t, layers, 1)
+
+		require.Contains(t, layers, mvt21.LayerName("my_layer"))
+		require.Len(t, layers["my_layer"].Features, 1)
+
+		require.True(t, layers["my_layer"].Features[0].ID.IsSet())
+		require.Equal(t, 67, int(layers["my_layer"].Features[0].ID.Value()))
+	})
+
+	t.Run("duplicate ID", func(t *testing.T) {
+		name, version, id, typ := "my_layer", uint32(2), uint64(67), spec.Tile_UNKNOWN
+		data, err := proto.Marshal(&spec.Tile{
+			Layers: []*spec.Tile_Layer{
+				{
+					Version: &version,
+					Name:    &name,
+					Features: []*spec.Tile_Feature{
+						{
+							Id:   &id,
+							Type: &typ,
+						},
+						{
+							Id:   &id,
+							Type: &typ,
+						},
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = mvt21.Unmarshal(data)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "already exists")
+	})
+}
+
 func newStringValue(value string) *spec.Tile_Value {
 	return &spec.Tile_Value{
 		StringValue: &value,

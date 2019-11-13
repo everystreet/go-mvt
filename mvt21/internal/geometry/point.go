@@ -33,11 +33,6 @@ func UnmarshalPoints(data []uint32, v geojson.Geometry, pos FromIntegers) error 
 		return err
 	}
 
-	if _, ok := v.(*RawShape); ok {
-		rv.Set(reflect.ValueOf(data))
-		return nil
-	}
-
 	n := len(data)
 	if n == 0 {
 		return fmt.Errorf("data len must be >= 1")
@@ -149,14 +144,4 @@ func unmarshalPosition(data []uint32, pos FromIntegers) (*geojson.Position, erro
 
 	p := pos(x.Value(), y.Value())
 	return &p, nil
-}
-
-func indirect(v geojson.Geometry) (*reflect.Value, error) {
-	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Ptr && rv.IsNil() {
-		return nil, fmt.Errorf("v must be a pointer")
-	}
-
-	i := reflect.Indirect(rv)
-	return &i, nil
 }

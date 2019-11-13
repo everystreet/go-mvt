@@ -3,6 +3,8 @@ package mvt21
 import (
 	"fmt"
 
+	"github.com/everystreet/go-mvt/mvt21/internal/geometry"
+
 	spec "github.com/everystreet/go-mvt/mvt21/internal/spec"
 	"github.com/golang/protobuf/proto"
 	"github.com/mercatormaps/go-geojson"
@@ -44,6 +46,10 @@ func unmarshalLayer(data spec.Tile_Layer) (*Layer, error) {
 	if err := unmarshalKeyValues(data.Keys, data.Values, &layer); err != nil {
 		return nil, err
 	}
+
+	if err := unmarshalFeatures(data.Features, &layer); err != nil {
+		return nil, err
+	}
 	return &layer, nil
 }
 
@@ -83,4 +89,42 @@ func unmarshalKeyValues(keys []string, values []*spec.Tile_Value, layer *Layer) 
 
 	layer.Metadata = metadata
 	return nil
+}
+
+func unmarshalFeatures(features []*spec.Tile_Feature, layer *Layer) error {
+	layer.Features = make([]Feature, len(features))
+
+	ids := make(map[uint64]struct{})
+	for i, data := range features {
+		feature := Feature{}
+
+		if id := data.Id; id != nil {
+			if _, ok := ids[*id]; ok {
+				return fmt.Errorf("layer with ID '%d' already exists", id)
+			}
+			feature.ID = NewOptionalUint64(*id)
+			ids[*id] = struct{}{}
+		}
+
+		if err := unmarshalGeometry(*data, &feature); err != nil {
+			return err
+		}
+		layer.Features[i] = feature
+	}
+	return nil
+}
+
+func unmarshalGeometry(data spec.Tile_Feature, feature *Feature) error {
+	if data.Type == nil {
+		return fmt.Errorf("missing geometry type")
+	}
+
+	switch *data.Type {
+	case spec.Tile_UNKNOWN:
+		geo := &UnknownGeometry{}
+		feature.Geometry = geo
+		return geometry.UnmarshalRaw(data.Geometry, &geo.RawShape)
+	default:
+		return fmt.Errorf("unknown geometry type '%v'", data.Type)
+	}
 }

@@ -3,6 +3,7 @@ package mvt21
 import (
 	"strconv"
 
+	"github.com/everystreet/go-mvt/mvt21/internal/geometry"
 	"github.com/mercatormaps/go-geojson"
 )
 
@@ -77,4 +78,9 @@ func (o OptionalUint64) String() string {
 		return strconv.FormatUint(*o.value, 10)
 	}
 	return "{unset}"
+}
+
+// UnknownGeometry implements to geojson.Geometry interface.
+type UnknownGeometry struct {
+	geometry.RawShape
 }
