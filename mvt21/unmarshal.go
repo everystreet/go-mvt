@@ -22,7 +22,7 @@ func Unmarshal(data []byte) (Layers, error) {
 			return nil, fmt.Errorf("layer with name '%s' already exists", name)
 		}
 
-		layer, err := unmarshal(*data)
+		layer, err := unmarshalLayer(*data)
 		if err != nil {
 			return nil, err
 		}
@@ -32,44 +32,55 @@ func Unmarshal(data []byte) (Layers, error) {
 	return layers, nil
 }
 
-func unmarshal(data spec.Tile_Layer) (*Layer, error) {
+func unmarshalLayer(data spec.Tile_Layer) (*Layer, error) {
 	if v := data.GetVersion(); v != 2 {
 		return nil, fmt.Errorf("unsupported version '%d'", v)
-	} else if ks, vs := len(data.Keys), len(data.Values); ks != vs {
-		return nil, fmt.Errorf("number of keys and values unequal (%d != %d)", ks, vs)
 	}
 
-	metadata := make([]geojson.Property, len(data.Keys))
-	keys := make(map[string]interface{}, len(data.Keys))
+	layer := Layer{
+		Extent: data.GetExtent(),
+	}
 
-	for i, key := range data.Keys {
-		if _, ok := keys[key]; ok {
-			return nil, fmt.Errorf("key with name '%s' already exists", key)
+	if err := unmarshalKeyValues(data.Keys, data.Values, &layer); err != nil {
+		return nil, err
+	}
+	return &layer, nil
+}
+
+func unmarshalKeyValues(keys []string, values []*spec.Tile_Value, layer *Layer) error {
+	if ks, vs := len(keys), len(values); ks != vs {
+		return fmt.Errorf("number of keys and values unequal (%d != %d)", ks, vs)
+	}
+
+	metadata := make([]geojson.Property, len(keys))
+	uniqueKeys := make(map[string]interface{}, len(keys))
+
+	for i, key := range keys {
+		if _, ok := uniqueKeys[key]; ok {
+			return fmt.Errorf("key with name '%s' already exists", key)
 		}
-		keys[key] = nil
+		uniqueKeys[key] = nil
 
 		switch {
-		case data.Values[i].StringValue != nil:
-			metadata[i] = geojson.Property{Name: key, Value: data.Values[i].GetStringValue()}
-		case data.Values[i].FloatValue != nil:
-			metadata[i] = geojson.Property{Name: key, Value: data.Values[i].GetFloatValue()}
-		case data.Values[i].DoubleValue != nil:
-			metadata[i] = geojson.Property{Name: key, Value: data.Values[i].GetDoubleValue()}
-		case data.Values[i].IntValue != nil:
-			metadata[i] = geojson.Property{Name: key, Value: data.Values[i].GetIntValue()}
-		case data.Values[i].UintValue != nil:
-			metadata[i] = geojson.Property{Name: key, Value: data.Values[i].GetUintValue()}
-		case data.Values[i].SintValue != nil:
-			metadata[i] = geojson.Property{Name: key, Value: data.Values[i].GetSintValue()}
-		case data.Values[i].BoolValue != nil:
-			metadata[i] = geojson.Property{Name: key, Value: data.Values[i].GetBoolValue()}
+		case values[i].StringValue != nil:
+			metadata[i] = geojson.Property{Name: key, Value: values[i].GetStringValue()}
+		case values[i].FloatValue != nil:
+			metadata[i] = geojson.Property{Name: key, Value: values[i].GetFloatValue()}
+		case values[i].DoubleValue != nil:
+			metadata[i] = geojson.Property{Name: key, Value: values[i].GetDoubleValue()}
+		case values[i].IntValue != nil:
+			metadata[i] = geojson.Property{Name: key, Value: values[i].GetIntValue()}
+		case values[i].UintValue != nil:
+			metadata[i] = geojson.Property{Name: key, Value: values[i].GetUintValue()}
+		case values[i].SintValue != nil:
+			metadata[i] = geojson.Property{Name: key, Value: values[i].GetSintValue()}
+		case values[i].BoolValue != nil:
+			metadata[i] = geojson.Property{Name: key, Value: values[i].GetBoolValue()}
 		default:
-			return nil, fmt.Errorf("missing value for '%s'", key)
+			return fmt.Errorf("missing value for '%s'", key)
 		}
 	}
 
-	return &Layer{
-		Extent:   data.GetExtent(),
-		Metadata: metadata,
-	}, nil
+	layer.Metadata = metadata
+	return nil
 }

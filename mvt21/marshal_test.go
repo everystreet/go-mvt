@@ -277,7 +277,7 @@ func TestMarshalFeatureTags(t *testing.T) {
 	require.Contains(t, tile.Layers[0].Features[0].Tags, uint32(key3Pos))
 }
 
-func TestFeatureTagDoesNotExist(t *testing.T) {
+func TestMarshalFeatureTagDoesNotExist(t *testing.T) {
 	_, err := mvt21.Marshal(mvt21.Layers{
 		"my_layer": {
 			Metadata: geojson.PropertyList{
@@ -297,40 +297,42 @@ func TestFeatureTagDoesNotExist(t *testing.T) {
 	require.Contains(t, err.Error(), "does not contain tag key")
 }
 
-func TestFeatureID(t *testing.T) {
-	data, err := mvt21.Marshal(mvt21.Layers{
-		"my_layer": {
-			Features: []mvt21.Feature{
-				{
-					ID: mvt21.NewOptionalUint64(67),
+func TestMarshalFeatureID(t *testing.T) {
+	t.Run("valid ID", func(t *testing.T) {
+		data, err := mvt21.Marshal(mvt21.Layers{
+			"my_layer": {
+				Features: []mvt21.Feature{
+					{
+						ID: mvt21.NewOptionalUint64(67),
+					},
 				},
 			},
-		},
+		})
+		require.NoError(t, err)
+
+		var tile spec.Tile
+		err = proto.Unmarshal(data, &tile)
+		require.NoError(t, err)
+		require.Len(t, tile.Layers, 1)
+
+		require.Len(t, tile.Layers[0].Features, 1)
+		require.Equal(t, 67, int(tile.Layers[0].Features[0].GetId()))
 	})
-	require.NoError(t, err)
 
-	var tile spec.Tile
-	err = proto.Unmarshal(data, &tile)
-	require.NoError(t, err)
-	require.Len(t, tile.Layers, 1)
-
-	require.Len(t, tile.Layers[0].Features, 1)
-	require.Equal(t, 67, int(tile.Layers[0].Features[0].GetId()))
-}
-
-func TestFeatureDuplicateID(t *testing.T) {
-	_, err := mvt21.Marshal(mvt21.Layers{
-		"my_layer": {
-			Features: []mvt21.Feature{
-				{
-					ID: mvt21.NewOptionalUint64(67),
-				},
-				{
-					ID: mvt21.NewOptionalUint64(67),
+	t.Run("duplicate ID", func(t *testing.T) {
+		_, err := mvt21.Marshal(mvt21.Layers{
+			"my_layer": {
+				Features: []mvt21.Feature{
+					{
+						ID: mvt21.NewOptionalUint64(67),
+					},
+					{
+						ID: mvt21.NewOptionalUint64(67),
+					},
 				},
 			},
-		},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "already exists")
 	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "already exists")
 }

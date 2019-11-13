@@ -22,13 +22,8 @@ func Marshal(layers Layers, opts ...MarshalOption) ([]byte, error) {
 
 	var i int
 	for name, data := range layers {
-		layer := newLayer(string(name), data.Extent)
-
-		if err := marshalKeyValues(data.Metadata, conf.metadata, layer); err != nil {
-			return nil, err
-		}
-
-		if err := marshalFeatures(data.Features, layer); err != nil {
+		layer, err := marshalLayer(data, string(name), conf)
+		if err != nil {
 			return nil, err
 		}
 
@@ -37,84 +32,6 @@ func Marshal(layers Layers, opts ...MarshalOption) ([]byte, error) {
 	}
 
 	return proto.Marshal(&tile)
-}
-
-func marshalFeatures(features []Feature, layer *spec.Tile_Layer) error {
-	layer.Features = make([]*spec.Tile_Feature, len(features))
-
-	ids := make(map[uint64]struct{})
-	for i, data := range features {
-		feature := &spec.Tile_Feature{}
-
-		if id, ok := data.ID.Get(); ok {
-			if _, ok = ids[id]; ok {
-				return fmt.Errorf("layer with ID '%d' already exists", id)
-			}
-			feature.Id = &id
-			ids[id] = struct{}{}
-		}
-
-		tags, err := featureTags(data.Tags, *layer)
-		if err != nil {
-			return err
-		}
-		feature.Tags = tags
-
-		layer.Features[i] = feature
-	}
-
-	return nil
-}
-
-func featureTags(tags []string, layer spec.Tile_Layer) ([]uint32, error) {
-	indexes := make([]uint32, len(tags))
-
-	for i, tag := range tags {
-		hasKey := false
-		for pos, key := range layer.Keys {
-			if strings.EqualFold(key, tag) {
-				hasKey = true
-				indexes[i] = uint32(pos)
-				break
-			}
-		}
-
-		if !hasKey {
-			return nil, fmt.Errorf("layer does not contain tag key '%s'", tag)
-		}
-	}
-
-	return indexes, nil
-}
-
-func marshalKeyValues(metadata geojson.PropertyList, additional []metadata, layer *spec.Tile_Layer) error {
-	// marshal untyped metadata from layer
-	kvs, err := keyValues(metadata)
-	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %w", err)
-	}
-
-	// then merge typed metadata from options
-	for _, metadata := range additional {
-		if _, ok := kvs[metadata.key]; ok {
-			return fmt.Errorf("metadata with name '%s' already exists", metadata.key)
-		}
-		kvs[metadata.key] = metadata.value
-	}
-
-	keys := make([]string, len(kvs))
-	values := make([]*spec.Tile_Value, len(kvs))
-
-	var i int
-	for key, value := range kvs {
-		keys[i] = key
-		values[i] = value
-		i++
-	}
-
-	layer.Keys = keys
-	layer.Values = values
-	return nil
 }
 
 // MarshalOption funcs can be used to modify the behaviour of Marshal.
@@ -201,18 +118,56 @@ type metadata struct {
 	value *spec.Tile_Value
 }
 
-func newLayer(name string, extent uint32) *spec.Tile_Layer {
+func marshalLayer(data Layer, name string, conf marshalConfig) (*spec.Tile_Layer, error) {
 	var version uint32 = 2
-	return &spec.Tile_Layer{
+	layer := spec.Tile_Layer{
 		Version: &version,
 		Name:    &name,
-		Extent:  &extent,
+		Extent:  &data.Extent,
 	}
+
+	if err := marshalKeyValues(data.Metadata, conf.metadata, &layer); err != nil {
+		return nil, err
+	}
+
+	if err := marshalFeatures(data.Features, &layer); err != nil {
+		return nil, err
+	}
+	return &layer, nil
+}
+
+func marshalKeyValues(metadata geojson.PropertyList, additional []metadata, layer *spec.Tile_Layer) error {
+	// marshal untyped metadata from layer
+	kvs, err := keyValues(metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	// then merge typed metadata from options
+	for _, metadata := range additional {
+		if _, ok := kvs[metadata.key]; ok {
+			return fmt.Errorf("metadata with name '%s' already exists", metadata.key)
+		}
+		kvs[metadata.key] = metadata.value
+	}
+
+	keys := make([]string, len(kvs))
+	values := make([]*spec.Tile_Value, len(kvs))
+
+	var i int
+	for key, value := range kvs {
+		keys[i] = key
+		values[i] = value
+		i++
+	}
+
+	layer.Keys = keys
+	layer.Values = values
+	return nil
 }
 
 func keyValues(metadata []geojson.Property) (map[string]*spec.Tile_Value, error) {
 	kvs := make(map[string]*spec.Tile_Value, len(metadata))
-
 	for _, prop := range metadata {
 		if _, ok := kvs[prop.Name]; ok {
 			return nil, fmt.Errorf("metadata with name '%s' already exists", prop.Name)
@@ -268,6 +223,50 @@ func keyValues(metadata []geojson.Property) (map[string]*spec.Tile_Value, error)
 			return nil, fmt.Errorf("metadata '%s' is of unsupported value type '%t'", prop.Name, v)
 		}
 	}
-
 	return kvs, nil
+}
+
+func marshalFeatures(features []Feature, layer *spec.Tile_Layer) error {
+	layer.Features = make([]*spec.Tile_Feature, len(features))
+
+	ids := make(map[uint64]struct{})
+	for i, data := range features {
+		feature := &spec.Tile_Feature{}
+
+		if id, ok := data.ID.Get(); ok {
+			if _, ok = ids[id]; ok {
+				return fmt.Errorf("layer with ID '%d' already exists", id)
+			}
+			feature.Id = &id
+			ids[id] = struct{}{}
+		}
+
+		tags, err := featureTags(data.Tags, *layer)
+		if err != nil {
+			return err
+		}
+		feature.Tags = tags
+
+		layer.Features[i] = feature
+	}
+	return nil
+}
+
+func featureTags(tags []string, layer spec.Tile_Layer) ([]uint32, error) {
+	indexes := make([]uint32, len(tags))
+	for i, tag := range tags {
+		hasKey := false
+		for pos, key := range layer.Keys {
+			if strings.EqualFold(key, tag) {
+				hasKey = true
+				indexes[i] = uint32(pos)
+				break
+			}
+		}
+
+		if !hasKey {
+			return nil, fmt.Errorf("layer does not contain tag key '%s'", tag)
+		}
+	}
+	return indexes, nil
 }
