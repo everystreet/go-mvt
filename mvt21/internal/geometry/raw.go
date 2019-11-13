@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/mercatormaps/go-geojson"
+	"github.com/everystreet/go-geojson"
 )
 
 // RawShape is a raw encoded geometry.

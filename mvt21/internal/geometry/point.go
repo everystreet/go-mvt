@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/mercatormaps/go-geojson"
+	"github.com/everystreet/go-geojson"
 )
 
 // ToIntegers transforms a GeoJSON position to a pair of tile coordinates.

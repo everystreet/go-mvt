@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/everystreet/go-geojson"
 	spec "github.com/everystreet/go-mvt/mvt21/internal/spec"
 	"github.com/golang/protobuf/proto"
-	"github.com/mercatormaps/go-geojson"
 )
 
 // Marshal returns the mvt encoding of the supplied layers.

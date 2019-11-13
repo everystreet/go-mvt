@@ -3,11 +3,10 @@ package mvt21
 import (
 	"fmt"
 
+	"github.com/everystreet/go-geojson"
 	"github.com/everystreet/go-mvt/mvt21/internal/geometry"
-
 	spec "github.com/everystreet/go-mvt/mvt21/internal/spec"
 	"github.com/golang/protobuf/proto"
-	"github.com/mercatormaps/go-geojson"
 )
 
 // Unmarshal parses the supplied mvt data and returns a set of layers.
