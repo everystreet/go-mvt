@@ -6,7 +6,7 @@ import (
 
 	spec "github.com/everystreet/go-mvt/mvt21/internal/spec"
 	"github.com/golang/protobuf/proto"
-	"github.com/mercatormaps/go-geojson"
+	"github.com/everystreet/go-geojson"
 )
 
 // Marshal returns the mvt encoding of the supplied layers.

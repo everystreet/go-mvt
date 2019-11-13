@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/everystreet/go-mvt/mvt21/internal/geometry"
-	"github.com/mercatormaps/go-geojson"
+	"github.com/everystreet/go-geojson"
 )
 
 type (
