@@ -8,12 +8,10 @@ import (
 )
 
 type (
-	// Layer is a single layer in a tile.
-	// A layer consists of zero or more featues, and zero or more metadata key-value pairs.
+	// Layer is a single layer in a tile. A layer consists of zero or more featues.
 	Layer struct {
 		Extent   uint32
 		Features []Feature
-		Metadata geojson.PropertyList
 	}
 
 	// Layers is an ordered list of named layers in a tile.
@@ -24,20 +22,17 @@ type (
 	LayerName string
 )
 
-// Metadata is a set of key-value pairs that belong to a single layer.
-type Metadata map[string]interface{}
-
 // NewLayer makes a new layer, setting the required extent field.
 func NewLayer(extent uint32) *Layer {
 	return &Layer{Extent: extent}
 }
 
 // Feature represents a geographical feature and optional attributes.
-// Tags is a list of metadata keys present in the parent layer.
+// Tags is a list of properties.
 type Feature struct {
 	Geometry geojson.Geometry
 	ID       OptionalUint64
-	Tags     []string
+	Tags     geojson.PropertyList
 }
 
 // NewFeature makes a new feature, setting the required geometry field.

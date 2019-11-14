@@ -53,34 +53,27 @@ func TestUnmarshalLayers(t *testing.T) {
 	})
 }
 
-func TestUnmarshalMetadata(t *testing.T) {
-	type check func(*testing.T, mvt21.Layer, error)
+func TestUnmarshalFeatureTags(t *testing.T) {
+	type check func(*testing.T, mvt21.Feature, error)
 
 	var checks = func(cs ...check) []check { return cs }
 
 	var (
 		hasNoError = func() check {
-			return func(t *testing.T, _ mvt21.Layer, err error) {
+			return func(t *testing.T, _ mvt21.Feature, err error) {
 				require.NoError(t, err)
 			}
 		}
 
-		hasError = func(contains string) check {
-			return func(t *testing.T, _ mvt21.Layer, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), contains)
+		hasTagsLength = func(num int) check {
+			return func(t *testing.T, feature mvt21.Feature, _ error) {
+				require.Len(t, feature.Tags, num)
 			}
 		}
 
-		hasMetadataLength = func(len int) check {
-			return func(t *testing.T, layer mvt21.Layer, _ error) {
-				require.Len(t, layer.Metadata, len)
-			}
-		}
-
-		hasProperty = func(name string, value interface{}) check {
-			return func(t *testing.T, layer mvt21.Layer, _ error) {
-				require.Contains(t, layer.Metadata, geojson.Property{
+		hasTag = func(name string, value interface{}) check {
+			return func(t *testing.T, feature mvt21.Feature, _ error) {
+				require.Contains(t, feature.Tags, geojson.Property{
 					Name:  name,
 					Value: value,
 				})
@@ -92,59 +85,68 @@ func TestUnmarshalMetadata(t *testing.T) {
 		Name   string
 		Keys   []string
 		Values []*spec.Tile_Value
+		Tags   []uint32
 		Checks []check
 	}{
 		{
 			Name:   "string value",
 			Keys:   []string{"key"},
 			Values: []*spec.Tile_Value{newStringValue("value")},
-			Checks: checks(hasNoError(), hasMetadataLength(1), hasProperty("key", "value")),
+			Tags:   []uint32{0, 0},
+			Checks: checks(hasNoError(), hasTagsLength(1), hasTag("key", "value")),
 		},
 		{
 			Name:   "float value",
 			Keys:   []string{"key"},
 			Values: []*spec.Tile_Value{newFloatValue(3.142)},
-			Checks: checks(hasNoError(), hasMetadataLength(1), hasProperty("key", float32(3.142))),
+			Tags:   []uint32{0, 0},
+			Checks: checks(hasNoError(), hasTagsLength(1), hasTag("key", float32(3.142))),
 		},
 		{
 			Name:   "double value",
 			Keys:   []string{"key"},
 			Values: []*spec.Tile_Value{newDoubleValue(3.142)},
-			Checks: checks(hasNoError(), hasMetadataLength(1), hasProperty("key", float64(3.142))),
+			Tags:   []uint32{0, 0},
+			Checks: checks(hasNoError(), hasTagsLength(1), hasTag("key", float64(3.142))),
 		},
 		{
 			Name:   "int value",
 			Keys:   []string{"key"},
 			Values: []*spec.Tile_Value{newIntValue(-95)},
-			Checks: checks(hasNoError(), hasMetadataLength(1), hasProperty("key", int64(-95))),
+			Tags:   []uint32{0, 0},
+			Checks: checks(hasNoError(), hasTagsLength(1), hasTag("key", int64(-95))),
 		},
 		{
 			Name:   "uint value",
 			Keys:   []string{"key"},
 			Values: []*spec.Tile_Value{newUintValue(95)},
-			Checks: checks(hasNoError(), hasMetadataLength(1), hasProperty("key", uint64(95))),
+			Tags:   []uint32{0, 0},
+			Checks: checks(hasNoError(), hasTagsLength(1), hasTag("key", uint64(95))),
 		},
 		{
 			Name:   "sint value",
 			Keys:   []string{"key"},
 			Values: []*spec.Tile_Value{newSintValue(-95)},
-			Checks: checks(hasNoError(), hasMetadataLength(1), hasProperty("key", int64(-95))),
+			Tags:   []uint32{0, 0},
+			Checks: checks(hasNoError(), hasTagsLength(1), hasTag("key", int64(-95))),
 		},
 		{
 			Name:   "bool value",
 			Keys:   []string{"key"},
 			Values: []*spec.Tile_Value{newBoolValue(true)},
-			Checks: checks(hasNoError(), hasMetadataLength(1), hasProperty("key", true)),
+			Tags:   []uint32{0, 0},
+			Checks: checks(hasNoError(), hasTagsLength(1), hasTag("key", true)),
 		},
 		{
-			Name:   "key clash",
-			Keys:   []string{"key", "key"},
-			Values: []*spec.Tile_Value{newStringValue("value1"), newStringValue("value2")},
-			Checks: checks(hasError("already exists")),
+			Name:   "multiple values",
+			Keys:   []string{"key"},
+			Values: []*spec.Tile_Value{newStringValue("value"), newIntValue(-95)},
+			Tags:   []uint32{0, 0, 0, 1},
+			Checks: checks(hasNoError(), hasTagsLength(2), hasTag("key", "value"), hasTag("key", int64(-95))),
 		},
 	} {
 		t.Run(tt.Name, func(t *testing.T) {
-			name, version := "layer1", uint32(2)
+			name, version, typ := "layer1", uint32(2), spec.Tile_UNKNOWN
 			data, err := proto.Marshal(&spec.Tile{
 				Layers: []*spec.Tile_Layer{
 					{
@@ -152,6 +154,12 @@ func TestUnmarshalMetadata(t *testing.T) {
 						Name:    &name,
 						Keys:    tt.Keys,
 						Values:  tt.Values,
+						Features: []*spec.Tile_Feature{
+							{
+								Type: &typ,
+								Tags: tt.Tags,
+							},
+						},
 					},
 				},
 			})
@@ -159,89 +167,20 @@ func TestUnmarshalMetadata(t *testing.T) {
 
 			layers, unmarshalErr := mvt21.Unmarshal(data)
 
-			var layer mvt21.Layer
+			var feature mvt21.Feature
 			if unmarshalErr == nil {
 				require.Len(t, layers, 1)
 				require.Contains(t, layers, mvt21.LayerName(name))
-				layer = layers[mvt21.LayerName(name)]
+
+				require.Len(t, layers[mvt21.LayerName(name)].Features, 1)
+				feature = layers[mvt21.LayerName(name)].Features[0]
 			}
 
 			for _, ch := range tt.Checks {
-				ch(t, layer, unmarshalErr)
+				ch(t, feature, unmarshalErr)
 			}
 		})
 	}
-}
-
-func TestUnmarshalFeatureTags(t *testing.T) {
-	t.Run("valid tags", func(t *testing.T) {
-		name, version, typ := "my_layer", uint32(2), spec.Tile_UNKNOWN
-		data, err := proto.Marshal(&spec.Tile{
-			Layers: []*spec.Tile_Layer{
-				{
-					Version: &version,
-					Name:    &name,
-					Keys: []string{
-						"key1",
-						"key2",
-					},
-					Values: []*spec.Tile_Value{
-						newStringValue("value"),
-						newStringValue("value"),
-					},
-					Features: []*spec.Tile_Feature{
-						{
-							Type: &typ,
-							Tags: []uint32{0, 1},
-						},
-					},
-				},
-			},
-		})
-		require.NoError(t, err)
-
-		layers, err := mvt21.Unmarshal(data)
-		require.NoError(t, err)
-		require.Len(t, layers, 1)
-
-		require.Contains(t, layers, mvt21.LayerName("my_layer"))
-		require.Len(t, layers["my_layer"].Features, 1)
-
-		require.Len(t, layers["my_layer"].Features[0].Tags, 2)
-		require.Contains(t, layers["my_layer"].Features[0].Tags, "key1")
-		require.Contains(t, layers["my_layer"].Features[0].Tags, "key2")
-	})
-
-	t.Run("invalid tag", func(t *testing.T) {
-		name, version, typ := "my_layer", uint32(2), spec.Tile_UNKNOWN
-		data, err := proto.Marshal(&spec.Tile{
-			Layers: []*spec.Tile_Layer{
-				{
-					Version: &version,
-					Name:    &name,
-					Keys: []string{
-						"key1",
-						"key2",
-					},
-					Values: []*spec.Tile_Value{
-						newStringValue("value"),
-						newStringValue("value"),
-					},
-					Features: []*spec.Tile_Feature{
-						{
-							Type: &typ,
-							Tags: []uint32{2},
-						},
-					},
-				},
-			},
-		})
-		require.NoError(t, err)
-
-		_, err = mvt21.Unmarshal(data)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "does not exist in layer")
-	})
 }
 
 func TestUnmarshalFeatureID(t *testing.T) {
