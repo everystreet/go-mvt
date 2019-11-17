@@ -23,6 +23,10 @@ func Unmarshal(data []uint32, typ spec.Tile_GeomType, transform FromIntegers, v 
 		return unmarshalRawShape(data, rv)
 	case spec.Tile_POINT:
 		return unmarshalPoints(data, rv, transform)
+	case spec.Tile_LINESTRING:
+		return unmarshalLinestrings(data, rv, transform)
+	case spec.Tile_POLYGON:
+		return unmarshalPolygons(data, rv, transform)
 	default:
 		return fmt.Errorf("unknown geometry type '%v'", typ)
 	}
@@ -40,7 +44,7 @@ func indirect(v interface{}) (*reflect.Value, error) {
 
 func unmarshalRawShape(data []uint32, v *reflect.Value) error {
 	raw := RawShape(data)
-	v.Set(reflect.ValueOf(&raw))
+	v.Set(reflect.ValueOf(raw))
 	return nil
 }
 
@@ -54,7 +58,7 @@ func unmarshalPoints(data []uint32, v *reflect.Value, transform FromIntegers) er
 	if err := cmd.Validate(); err != nil {
 		return fmt.Errorf("invalid command: %w", err)
 	} else if id := cmd.ID(); id != MoveTo {
-		return fmt.Errorf("expecting MoveTo command, received '%d'", id)
+		return fmt.Errorf("expecting MoveTo command, received '%v'", id)
 	}
 
 	count := cmd.Count()
@@ -77,6 +81,85 @@ func unmarshalPoints(data []uint32, v *reflect.Value, transform FromIntegers) er
 	return nil
 }
 
+func unmarshalLinestrings(data []uint32, v *reflect.Value, transform FromIntegers) error {
+	var linestrings geojson.MultiLineString
+
+	for {
+		if n := len(data); n < 4 {
+			return fmt.Errorf("data len must be >= 4, have %d", n)
+		}
+
+		// MoveTo with command count == 1
+		cmd, err := unmarshalCommand(data[0], MoveTo)
+		if err != nil {
+			return err
+		} else if n := cmd.Count(); n != 1 {
+			return fmt.Errorf("expecting command count of 1, received '%d'", n)
+		}
+
+		// single pair for integers forms first coordinate
+		x, y, err := unmarshalIntegers(data[1:3])
+		if err != nil {
+			return err
+		}
+
+		// LineTo with command count >= 1
+		cmd, err = unmarshalCommand(data[3], LineTo)
+		if err != nil {
+			return err
+		} else if n := cmd.Count(); n < 1 {
+			return fmt.Errorf("expecting command count >= 1, received '%d'", n)
+		}
+
+		// length of data for linestring
+		lineDataLen := 4 + (2 * int(cmd.Count()))
+		if n := len(data); n < lineDataLen {
+			return fmt.Errorf("data len must be >= %d, have %d", lineDataLen, n)
+		}
+
+		points := make([]struct {
+			x, y int32
+		}, cmd.Count()+1)
+		points[0].x = x.Value()
+		points[0].y = y.Value()
+
+		// remaining coordinates make up the rest of the line
+		for i := uint32(0); i < cmd.Count(); i++ {
+			x, y, err := unmarshalIntegers(data[4+2*i : 6+2*i])
+			if err != nil {
+				return err
+			}
+
+			// each coordinate is relative to the previous
+			prev := points[i]
+			points[i+1].x = prev.x + x.Value()
+			points[i+1].y = prev.y + y.Value()
+		}
+
+		linestrings = append(linestrings, make(geojson.LineString, len(points)))
+		ls := linestrings[len(linestrings)-1]
+		for i, p := range points {
+			ls[i] = transform(p.x, p.y)
+		}
+
+		if len(data) == lineDataLen {
+			break
+		}
+		data = data[lineDataLen:]
+	}
+
+	if len(linestrings) == 1 {
+		v.Set(reflect.ValueOf((geojson.LineString)(linestrings[0])))
+	} else {
+		v.Set(reflect.ValueOf((geojson.MultiLineString)(linestrings)))
+	}
+	return nil
+}
+
+func unmarshalPolygons(data []uint32, v *reflect.Value, transform FromIntegers) error {
+	return nil
+}
+
 func unmarshalPositions(data []uint32, transform FromIntegers) ([]geojson.Position, error) {
 	if n := len(data); n%2 != 0 {
 		return nil, fmt.Errorf("expecting even number of integers, have %d", n)
@@ -91,6 +174,23 @@ func unmarshalPositions(data []uint32, transform FromIntegers) ([]geojson.Positi
 		positions[i] = *pos
 	}
 	return positions, nil
+}
+
+func unmarshalIntegers(data []uint32) (x, y ParameterInteger, err error) {
+	if n := len(data); n != 2 {
+		return 0, 0, fmt.Errorf("expecting 2 integers, have %d", n)
+	}
+
+	x = ParameterInteger(data[0])
+	if err := x.Validate(); err != nil {
+		return 0, 0, err
+	}
+
+	y = ParameterInteger(data[1])
+	if err := y.Validate(); err != nil {
+		return 0, 0, err
+	}
+	return
 }
 
 func unmarshalPosition(data []uint32, transform FromIntegers) (*geojson.Position, error) {
@@ -110,4 +210,14 @@ func unmarshalPosition(data []uint32, transform FromIntegers) (*geojson.Position
 
 	pos := transform(x.Value(), y.Value())
 	return &pos, nil
+}
+
+func unmarshalCommand(i uint32, id CommandID) (*CommandInteger, error) {
+	cmd := CommandInteger(i)
+	if err := cmd.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid command '%d': %w", i, err)
+	} else if cmd.ID() != id {
+		return nil, fmt.Errorf("expecting '%v' command, received '%v'", id, cmd.ID())
+	}
+	return &cmd, nil
 }

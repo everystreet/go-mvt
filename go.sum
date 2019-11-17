@@ -1,8 +1,8 @@
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/everystreet/go-geojson v1.0.0 h1:SpBV1pcPR83WpywBfXMmFQuvmjRrxZNa87atcnFnd5I=
-github.com/everystreet/go-geojson v1.0.0/go.mod h1:xZrnwJr4GalQsZWYLaVgNxs0RKjyuEe3AKncvM3zXr4=
+github.com/everystreet/go-geojson v1.0.1-0.20191117213921-88f6182f64d3 h1:PyevZSYoJOYqlJIVavPxpHmfDqrBzXL5u2W43Bxp3D4=
+github.com/everystreet/go-geojson v1.0.1-0.20191117213921-88f6182f64d3/go.mod h1:xZrnwJr4GalQsZWYLaVgNxs0RKjyuEe3AKncvM3zXr4=
 github.com/golang/protobuf v1.3.2 h1:6nsPYzhq5kReh6QImI3k5qWzO4PEbvbIW2cwSfR/6xs=
 github.com/golang/protobuf v1.3.2/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/kr/pretty v0.1.0 h1:L/CwN0zerZDmRFUapSPitk6f+Q3+0za1rQkzVuMiMFI=

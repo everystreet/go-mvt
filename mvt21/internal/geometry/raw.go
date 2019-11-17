@@ -10,7 +10,7 @@ import (
 type RawShape []uint32
 
 // MarshalJSON returns the JSON encoding of s.
-func (s *RawShape) MarshalJSON() ([]byte, error) {
+func (s RawShape) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s)
 }
 
@@ -20,6 +20,11 @@ func (s *RawShape) UnmarshalJSON(data []byte) error {
 }
 
 // Type returns the geometry type.
-func (s *RawShape) Type() geojson.GeometryType {
+func (s RawShape) Type() geojson.GeometryType {
 	return "raw"
+}
+
+// Validate the RawShape.
+func (s RawShape) Validate() error {
+	return nil
 }
