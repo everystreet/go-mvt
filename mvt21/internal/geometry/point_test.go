@@ -6,23 +6,24 @@ import (
 
 	"github.com/everystreet/go-geojson"
 	"github.com/everystreet/go-mvt/mvt21/internal/geometry"
+	spec "github.com/everystreet/go-mvt/mvt21/internal/spec"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPoint(t *testing.T) {
 	feature := geojson.NewPoint(12, 34)
-	data, err := geometry.MarshalPoints(feature.Geometry, func(p geojson.Position) (x, y int32) {
+	data, err := geometry.Marshal(feature.Geometry, func(p geojson.Position) (x, y int32) {
 		return int32(p.Longitude), int32(p.Latitude)
 	})
 	require.NoError(t, err)
 
 	var point geojson.Point
-	err = geometry.UnmarshalPoints(data, &point, func(x, y int32) geojson.Position {
+	err = geometry.Unmarshal(data, spec.Tile_POINT, func(x, y int32) geojson.Position {
 		return geojson.Position{
 			Longitude: float64(x),
 			Latitude:  float64(y),
 		}
-	})
+	}, &point)
 	require.NoError(t, err)
 	require.Equal(t, feature.Geometry, &point)
 }
@@ -32,19 +33,19 @@ func TestMultiPoint(t *testing.T) {
 		geojson.NewPosition(12, 34),
 		geojson.NewPosition(56, 78))
 
-	data, err := geometry.MarshalPoints(feature.Geometry, func(p geojson.Position) (x, y int32) {
+	data, err := geometry.Marshal(feature.Geometry, func(p geojson.Position) (x, y int32) {
 		return int32(p.Longitude), int32(p.Latitude)
 	})
 	require.NoError(t, err)
 	fmt.Println(data)
 
-	var point geojson.MultiPoint
-	err = geometry.UnmarshalPoints(data, &point, func(x, y int32) geojson.Position {
+	var points geojson.MultiPoint
+	err = geometry.Unmarshal(data, spec.Tile_POINT, func(x, y int32) geojson.Position {
 		return geojson.Position{
 			Longitude: float64(x),
 			Latitude:  float64(y),
 		}
-	})
+	}, &points)
 	require.NoError(t, err)
-	require.Equal(t, feature.Geometry, &point)
+	require.Equal(t, feature.Geometry, &points)
 }

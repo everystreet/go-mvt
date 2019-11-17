@@ -131,13 +131,5 @@ func unmarshalGeometry(data spec.Tile_Feature, feature *Feature) error {
 	if data.Type == nil {
 		return fmt.Errorf("missing geometry type")
 	}
-
-	switch *data.Type {
-	case spec.Tile_UNKNOWN:
-		geo := &UnknownGeometry{}
-		feature.Geometry = geo
-		return geometry.UnmarshalRaw(data.Geometry, &geo.RawShape)
-	default:
-		return fmt.Errorf("unknown geometry type '%v'", data.Type)
-	}
+	return geometry.Unmarshal(data.Geometry, *data.Type, nil, &feature.Geometry)
 }
