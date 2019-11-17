@@ -49,3 +49,25 @@ func TestMultiPoint(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, feature.Geometry, &points)
 }
+
+func TestLineString(t *testing.T) {
+	feature := geojson.NewLineString(
+		geojson.NewPosition(12, 34),
+		geojson.NewPosition(56, 78),
+		geojson.NewPosition(90, 12),
+		geojson.NewPosition(34, 56))
+	data, err := geometry.Marshal(feature.Geometry, func(p geojson.Position) (x, y int32) {
+		return int32(p.Longitude), int32(p.Latitude)
+	})
+	require.NoError(t, err)
+
+	var linestring geojson.LineString
+	err = geometry.Unmarshal(data, spec.Tile_LINESTRING, func(x, y int32) geojson.Position {
+		return geojson.Position{
+			Longitude: float64(x),
+			Latitude:  float64(y),
+		}
+	}, &linestring)
+	require.NoError(t, err)
+	require.Equal(t, feature.Geometry, &linestring)
+}

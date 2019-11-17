@@ -18,6 +18,19 @@ const (
 	ClosePath CommandID = 7
 )
 
+func (id CommandID) String() string {
+	switch id {
+	case MoveTo:
+		return "MoveTo"
+	case LineTo:
+		return "LineTo"
+	case ClosePath:
+		return "ClosePath"
+	default:
+		return "unknown"
+	}
+}
+
 // CommandInteger consists of a command ID, and the number of times to execute that command.
 type CommandInteger uint32
 
@@ -48,7 +61,7 @@ func validateCommandInteger(id CommandID, count uint32) error {
 	switch id {
 	case MoveTo, LineTo, ClosePath:
 	default:
-		return fmt.Errorf("invalid command ID")
+		return fmt.Errorf("invalid command ID, '%d'", id)
 	}
 
 	if max := uint32(math.Pow(2, 29) - 1); count > max {
