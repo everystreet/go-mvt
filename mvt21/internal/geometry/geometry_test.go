@@ -1,7 +1,6 @@
 package geometry_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/everystreet/go-geojson"
@@ -43,7 +42,6 @@ func TestMultiPoint(t *testing.T) {
 
 	data, err := geometry.Marshal(feature.Geometry, SimpleToIntegers)
 	require.NoError(t, err)
-	fmt.Println(data)
 
 	var points geojson.MultiPoint
 	err = geometry.Unmarshal(data, spec.Tile_POINT, SimpleFromIntegers, &points)
@@ -87,6 +85,70 @@ func TestMultiLineString(t *testing.T) {
 	err = geometry.Unmarshal(data, spec.Tile_LINESTRING, SimpleFromIntegers, &multilinestring)
 	require.NoError(t, err)
 	require.Equal(t, feature.Geometry, &multilinestring)
+}
+
+func TestPolygon(t *testing.T) {
+	feature := geojson.NewPolygon(
+		[]geojson.Position{
+			geojson.NewPosition(7, 7),
+			geojson.NewPosition(8, 4),
+			geojson.NewPosition(4, 3),
+			geojson.NewPosition(2, 5),
+			geojson.NewPosition(3, 7),
+			geojson.NewPosition(7, 7),
+		},
+		[]geojson.Position{
+			geojson.NewPosition(4, 4),
+			geojson.NewPosition(6, 4),
+			geojson.NewPosition(7, 5),
+			geojson.NewPosition(4, 6),
+			geojson.NewPosition(4, 4),
+		},
+	)
+	data, err := geometry.Marshal(feature.Geometry, SimpleToIntegers)
+	require.NoError(t, err)
+
+	var polygon geojson.Polygon
+	err = geometry.Unmarshal(data, spec.Tile_POLYGON, SimpleFromIntegers, &polygon)
+	require.NoError(t, err)
+	require.Equal(t, feature.Geometry, &polygon)
+}
+
+func TestMultiPolygon(t *testing.T) {
+	feature := geojson.NewMultiPolygon(
+		[][]geojson.Position{
+			{
+				geojson.NewPosition(7, 7),
+				geojson.NewPosition(8, 4),
+				geojson.NewPosition(4, 3),
+				geojson.NewPosition(2, 5),
+				geojson.NewPosition(3, 7),
+				geojson.NewPosition(7, 7),
+			},
+			[]geojson.Position{
+				geojson.NewPosition(4, 4),
+				geojson.NewPosition(6, 4),
+				geojson.NewPosition(7, 5),
+				geojson.NewPosition(4, 6),
+				geojson.NewPosition(4, 4),
+			},
+		},
+		[][]geojson.Position{
+			{
+				geojson.NewPosition(7, 7),
+				geojson.NewPosition(4, 3),
+				geojson.NewPosition(2, 5),
+				geojson.NewPosition(7, 7),
+			},
+		},
+	)
+	data, err := geometry.Marshal(feature.Geometry, SimpleToIntegers)
+	require.NoError(t, err)
+
+	var multipolygon geojson.MultiPolygon
+	err = geometry.Unmarshal(data, spec.Tile_POLYGON, SimpleFromIntegers, &multipolygon)
+	require.NoError(t, err)
+	require.Equal(t, feature.Geometry, &multipolygon)
 }
 
 var SimpleToIntegers = func(pos geojson.Position) (x, y int32) {

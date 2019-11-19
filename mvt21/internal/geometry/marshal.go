@@ -11,6 +11,10 @@ type ToIntegers func(geojson.Position) (x, y int32)
 
 // Marshal returns the encoded sequence of a GeoJSON geometry.
 func Marshal(v geojson.Geometry, transform ToIntegers) ([]uint32, error) {
+	if err := v.Validate(); err != nil {
+		return nil, err
+	}
+
 	switch v := v.(type) {
 	case *RawShape:
 		return marshalRawShape(*v)
@@ -22,6 +26,10 @@ func Marshal(v geojson.Geometry, transform ToIntegers) ([]uint32, error) {
 		return marshalLineString(*v, transform)
 	case *geojson.MultiLineString:
 		return marshalMultiLineString(*v, transform)
+	case *geojson.Polygon:
+		return marshalPolygon(*v, transform)
+	case *geojson.MultiPolygon:
+		return marshalMultiPolygon(*v, transform)
 	default:
 		return nil, fmt.Errorf("unknown type '%t'", v)
 	}
@@ -118,6 +126,48 @@ func marshalMultiLineString(v geojson.MultiLineString, transform ToIntegers) ([]
 		linestrings = append(linestrings, data...)
 	}
 	return linestrings, nil
+}
+
+func marshalPolygon(v geojson.Polygon, transform ToIntegers) ([]uint32, error) {
+	if len(v) < 1 {
+		return nil, fmt.Errorf("polygon must consist of at least an exterior ring")
+	}
+
+	var data []uint32
+	for i, loop := range v {
+		// The first and last points of a GeoJSON polygon loop are the same,
+		// but vector tiles implicitly connect the first and last points.
+		// So we must remove last point and check we still have at least 3.
+		if len(loop) < 4 {
+			return nil, fmt.Errorf("loop '%d' must consist of at least 4 points (excluding the last)", i)
+		}
+
+		// A polygon loop is a linestring with a trailing ClosePath command.
+		linestring, err := marshalLineString(loop[:len(loop)-1], transform)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal loop '%d': %w", i, err)
+		}
+		data = append(data, linestring...)
+
+		cmd, err := MakeCommandInteger(ClosePath, 1)
+		if err != nil {
+			return nil, err
+		}
+		data = append(data, uint32(cmd))
+	}
+	return data, nil
+}
+
+func marshalMultiPolygon(v geojson.MultiPolygon, transform ToIntegers) ([]uint32, error) {
+	var data []uint32
+	for i, polygon := range v {
+		p, err := marshalPolygon(polygon, transform)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal polygon '%d': %w", i, err)
+		}
+		data = append(data, p...)
+	}
+	return data, nil
 }
 
 func marshalPositions(transform ToIntegers, positions ...geojson.Position) ([]uint32, error) {

@@ -22,9 +22,12 @@ type (
 	LayerName string
 )
 
-// NewLayer makes a new layer, setting the required extent field.
-func NewLayer(extent uint32) *Layer {
-	return &Layer{Extent: extent}
+// MakeLayer setting the required extent field.
+func MakeLayer(extent uint32, features ...Feature) Layer {
+	return Layer{
+		Extent:   extent,
+		Features: features,
+	}
 }
 
 // Feature represents a geographical feature and optional attributes.
