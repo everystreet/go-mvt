@@ -44,7 +44,7 @@ func indirect(v interface{}) (*reflect.Value, error) {
 
 func unmarshalRawShape(data []uint32, v *reflect.Value) error {
 	raw := RawShape(data)
-	v.Set(reflect.ValueOf(raw))
+	v.Set(reflect.ValueOf(&raw))
 	return nil
 }
 

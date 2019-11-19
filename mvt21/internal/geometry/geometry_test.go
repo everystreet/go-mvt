@@ -15,14 +15,14 @@ func TestRawShape(t *testing.T) {
 	data, err := geometry.Marshal(feature.Geometry, SimpleToIntegers)
 	require.NoError(t, err)
 
-	var raw geometry.RawShape
+	var raw geojson.Geometry
 	err = geometry.Unmarshal(data, spec.Tile_UNKNOWN, SimpleFromIntegers, &raw)
 	require.NoError(t, err)
-	require.Equal(t, data, []uint32(raw))
+	require.Equal(t, (*geometry.RawShape)(&data), raw.(*geometry.RawShape))
 
-	data, err = geometry.Marshal(&raw, SimpleToIntegers)
+	data, err = geometry.Marshal(raw, SimpleToIntegers)
 	require.NoError(t, err)
-	require.Equal(t, raw, geometry.RawShape(data))
+	require.Equal(t, raw, (*geometry.RawShape)(&data))
 }
 
 func TestPoint(t *testing.T) {
