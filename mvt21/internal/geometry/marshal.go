@@ -3,7 +3,7 @@ package geometry
 import (
 	"fmt"
 
-	"github.com/everystreet/go-geojson"
+	"github.com/everystreet/go-geojson/v2"
 )
 
 // ToIntegers transforms a GeoJSON position to a pair of tile coordinates.

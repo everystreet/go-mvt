@@ -3,7 +3,7 @@ package mvt21
 import (
 	"strconv"
 
-	"github.com/everystreet/go-geojson"
+	"github.com/everystreet/go-geojson/v2"
 	"github.com/everystreet/go-mvt/mvt21/internal/geometry"
 )
 

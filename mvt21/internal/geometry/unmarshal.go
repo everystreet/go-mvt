@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/everystreet/go-geojson"
+	"github.com/everystreet/go-geojson/v2"
 	spec "github.com/everystreet/go-mvt/mvt21/internal/spec"
 )
 
