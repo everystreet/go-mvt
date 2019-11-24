@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/everystreet/go-mvt/mvt21/internal/geometry"
+	"github.com/everystreet/go-mvt/internal/geometry"
 	"github.com/stretchr/testify/require"
 )
 

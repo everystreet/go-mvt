@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"github.com/everystreet/go-geojson/v2"
-	spec "github.com/everystreet/go-mvt/mvt21/internal/spec"
+	spec "github.com/everystreet/go-mvt/internal/spec"
 )
 
 // FromIntegers transforms a pair of tile coordinates to a GeoJSON position.

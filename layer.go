@@ -1,10 +1,10 @@
-package mvt21
+package mvt
 
 import (
 	"strconv"
 
 	"github.com/everystreet/go-geojson/v2"
-	"github.com/everystreet/go-mvt/mvt21/internal/geometry"
+	"github.com/everystreet/go-mvt/internal/geometry"
 )
 
 type (

@@ -1,11 +1,11 @@
-package mvt21_test
+package mvt_test
 
 import (
 	"testing"
 
 	"github.com/everystreet/go-geojson/v2"
-	"github.com/everystreet/go-mvt/mvt21"
-	spec "github.com/everystreet/go-mvt/mvt21/internal/spec"
+	mvt21 "github.com/everystreet/go-mvt"
+	spec "github.com/everystreet/go-mvt/internal/spec"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 )

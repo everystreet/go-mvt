@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/everystreet/go-geojson/v2"
-	"github.com/everystreet/go-mvt/mvt21/internal/geometry"
-	spec "github.com/everystreet/go-mvt/mvt21/internal/spec"
+	"github.com/everystreet/go-mvt/internal/geometry"
+	spec "github.com/everystreet/go-mvt/internal/spec"
 	"github.com/stretchr/testify/require"
 )
 

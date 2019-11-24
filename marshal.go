@@ -1,10 +1,10 @@
-package mvt21
+package mvt
 
 import (
 	"fmt"
 
 	"github.com/everystreet/go-geojson/v2"
-	spec "github.com/everystreet/go-mvt/mvt21/internal/spec"
+	spec "github.com/everystreet/go-mvt/internal/spec"
 	"github.com/golang/protobuf/proto"
 )
 
