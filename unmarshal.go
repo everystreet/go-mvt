@@ -9,8 +9,11 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+// Unproject a projected coordinate to a geographic CRS.
+type Unproject geometry.Unproject
+
 // Unmarshal parses the supplied mvt data and returns a set of layers.
-func Unmarshal(data []byte) (Layers, error) {
+func Unmarshal(data []byte, unproject Unproject) (Layers, error) {
 	tile := spec.Tile{}
 	if err := proto.Unmarshal(data, &tile); err != nil {
 		return nil, err
@@ -23,7 +26,7 @@ func Unmarshal(data []byte) (Layers, error) {
 			return nil, fmt.Errorf("layer with name '%s' already exists", name)
 		}
 
-		layer, err := unmarshalLayer(*data)
+		layer, err := unmarshalLayer(*data, geometry.Unproject(unproject))
 		if err != nil {
 			return nil, err
 		}
@@ -33,7 +36,7 @@ func Unmarshal(data []byte) (Layers, error) {
 	return layers, nil
 }
 
-func unmarshalLayer(data spec.Tile_Layer) (*Layer, error) {
+func unmarshalLayer(data spec.Tile_Layer, unproject geometry.Unproject) (*Layer, error) {
 	if v := data.GetVersion(); v != 2 {
 		return nil, fmt.Errorf("unsupported version '%d'", v)
 	}
@@ -42,13 +45,13 @@ func unmarshalLayer(data spec.Tile_Layer) (*Layer, error) {
 		Extent: data.GetExtent(),
 	}
 
-	if err := unmarshalFeatures(data, &layer); err != nil {
+	if err := unmarshalFeatures(data, unproject, &layer); err != nil {
 		return nil, err
 	}
 	return &layer, nil
 }
 
-func unmarshalFeatures(layerData spec.Tile_Layer, layer *Layer) error {
+func unmarshalFeatures(layerData spec.Tile_Layer, unproject geometry.Unproject, layer *Layer) error {
 	layer.Features = make([]Feature, len(layerData.Features))
 
 	ids := make(map[uint64]struct{})
@@ -67,7 +70,7 @@ func unmarshalFeatures(layerData spec.Tile_Layer, layer *Layer) error {
 			return err
 		}
 
-		if err := unmarshalGeometry(*data, &feature); err != nil {
+		if err := unmarshalGeometry(*data, unproject, &feature); err != nil {
 			return err
 		}
 		layer.Features[i] = feature
@@ -127,9 +130,9 @@ func unmarshalValue(v spec.Tile_Value) (interface{}, error) {
 	}
 }
 
-func unmarshalGeometry(data spec.Tile_Feature, feature *Feature) error {
+func unmarshalGeometry(data spec.Tile_Feature, unproject geometry.Unproject, feature *Feature) error {
 	if data.Type == nil {
 		return fmt.Errorf("missing geometry type")
 	}
-	return geometry.Unmarshal(data.Geometry, *data.Type, nil, &feature.Geometry)
+	return geometry.Unmarshal(data.Geometry, *data.Type, unproject, &feature.Geometry)
 }

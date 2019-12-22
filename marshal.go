@@ -4,12 +4,16 @@ import (
 	"fmt"
 
 	"github.com/everystreet/go-geojson/v2"
+	"github.com/everystreet/go-mvt/internal/geometry"
 	spec "github.com/everystreet/go-mvt/internal/spec"
 	"github.com/golang/protobuf/proto"
 )
 
+// Project a geographic coordinate to a projected CRS.
+type Project geometry.Project
+
 // Marshal returns the mvt encoding of the supplied layers.
-func Marshal(layers Layers) ([]byte, error) {
+func Marshal(layers Layers, project Project) ([]byte, error) {
 	tile := spec.Tile{
 		Layers: make([]*spec.Tile_Layer, len(layers)),
 	}
@@ -61,7 +65,6 @@ func marshalFeatures(features []Feature, layer *spec.Tile_Layer) error {
 		}
 
 		marshalTags(data.Tags, keys, values, &feature)
-
 		layer.Features[i] = &feature
 	}
 

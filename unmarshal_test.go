@@ -20,7 +20,7 @@ func TestUnmarshalLayers(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		layers, err := mvt21.Unmarshal(data)
+		layers, err := mvt21.Unmarshal(data, nil)
 		require.NoError(t, err)
 		require.Len(t, layers, 2)
 
@@ -47,7 +47,7 @@ func TestUnmarshalLayers(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = mvt21.Unmarshal(data)
+		_, err = mvt21.Unmarshal(data, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already exists")
 	})
@@ -165,7 +165,7 @@ func TestUnmarshalFeatureTags(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			layers, unmarshalErr := mvt21.Unmarshal(data)
+			layers, unmarshalErr := mvt21.Unmarshal(data, nil)
 
 			var feature mvt21.Feature
 			if unmarshalErr == nil {
@@ -202,7 +202,7 @@ func TestUnmarshalFeatureID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		layers, err := mvt21.Unmarshal(data)
+		layers, err := mvt21.Unmarshal(data, nil)
 		require.NoError(t, err)
 		require.Len(t, layers, 1)
 
@@ -235,7 +235,7 @@ func TestUnmarshalFeatureID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = mvt21.Unmarshal(data)
+		_, err = mvt21.Unmarshal(data, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already exists")
 	})

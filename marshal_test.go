@@ -18,7 +18,7 @@ func TestMarshalLayers(t *testing.T) {
 		"layer2": {
 			Extent: 2048,
 		},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	var tile spec.Tile
@@ -50,7 +50,7 @@ func TestMarshalFeatureID(t *testing.T) {
 					},
 				},
 			},
-		})
+		}, nil)
 		require.NoError(t, err)
 
 		var tile spec.Tile
@@ -74,7 +74,7 @@ func TestMarshalFeatureID(t *testing.T) {
 					},
 				},
 			},
-		})
+		}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already exists")
 	})
@@ -285,7 +285,7 @@ func TestMarshalFeatureTags(t *testing.T) {
 						},
 					},
 				},
-			})
+			}, nil)
 
 			var layer spec.Tile_Layer
 			if marshalErr == nil {

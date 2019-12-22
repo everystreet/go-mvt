@@ -4,13 +4,15 @@ import (
 	"fmt"
 
 	"github.com/everystreet/go-geojson/v2"
+	"github.com/golang/geo/r2"
+	"github.com/golang/geo/s2"
 )
 
-// ToIntegers transforms a GeoJSON position to a pair of tile coordinates.
-type ToIntegers func(geojson.Position) (x, y int32)
+// Project a geographic coordinate to a projected CRS.
+type Project func(s2.LatLng) r2.Point
 
 // Marshal returns the encoded sequence of a GeoJSON geometry.
-func Marshal(v geojson.Geometry, transform ToIntegers) ([]uint32, error) {
+func Marshal(v geojson.Geometry, project Project) ([]uint32, error) {
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
@@ -19,17 +21,17 @@ func Marshal(v geojson.Geometry, transform ToIntegers) ([]uint32, error) {
 	case *RawShape:
 		return marshalRawShape(*v)
 	case *geojson.Point:
-		return marshalPoint(*v, transform)
+		return marshalPoint(*v, project)
 	case *geojson.MultiPoint:
-		return marshalMultiPoint(*v, transform)
+		return marshalMultiPoint(*v, project)
 	case *geojson.LineString:
-		return marshalLineString(*v, transform)
+		return marshalLineString(*v, project)
 	case *geojson.MultiLineString:
-		return marshalMultiLineString(*v, transform)
+		return marshalMultiLineString(*v, project)
 	case *geojson.Polygon:
-		return marshalPolygon(*v, transform)
+		return marshalPolygon(*v, project)
 	case *geojson.MultiPolygon:
-		return marshalMultiPolygon(*v, transform)
+		return marshalMultiPolygon(*v, project)
 	default:
 		return nil, fmt.Errorf("unknown type '%t'", v)
 	}
@@ -39,43 +41,40 @@ func marshalRawShape(v RawShape) ([]uint32, error) {
 	return v, nil
 }
 
-func marshalPoint(v geojson.Point, transform ToIntegers) ([]uint32, error) {
+func marshalPoint(v geojson.Point, project Project) ([]uint32, error) {
 	cmd, err := MakeCommandInteger(MoveTo, 1)
 	if err != nil {
 		return nil, err
 	}
 
-	positions, err := marshalPositions(transform, geojson.Position(v))
+	positions, err := marshalPositions(project, geojson.Position(v))
 	if err != nil {
 		return nil, err
 	}
 	return append([]uint32{uint32(cmd)}, positions...), nil
 }
 
-func marshalMultiPoint(v geojson.MultiPoint, transform ToIntegers) ([]uint32, error) {
+func marshalMultiPoint(v geojson.MultiPoint, project Project) ([]uint32, error) {
 	cmd, err := MakeCommandInteger(MoveTo, uint32(len(v)))
 	if err != nil {
 		return nil, err
 	}
 
-	positions, err := marshalPositions(transform, v...)
+	positions, err := marshalPositions(project, v...)
 	if err != nil {
 		return nil, err
 	}
 	return append([]uint32{uint32(cmd)}, positions...), nil
 }
 
-func marshalLineString(v geojson.LineString, transform ToIntegers) ([]uint32, error) {
+func marshalLineString(v geojson.LineString, project Project) ([]uint32, error) {
 	if len(v) < 2 {
 		return nil, fmt.Errorf("linestring must consist of at least 2 points")
 	}
 
-	integers := make([]struct {
-		x, y int32
-	}, len(v))
-
-	for i, pos := range v {
-		integers[i].x, integers[i].y = transform(pos)
+	points := make([]r2.Point, len(v))
+	for i, p := range v {
+		points[i] = project(p.LatLng)
 	}
 
 	// MoveTo with command count == 1
@@ -86,26 +85,27 @@ func marshalLineString(v geojson.LineString, transform ToIntegers) ([]uint32, er
 	data := []uint32{uint32(cmd)}
 
 	// first point
-	ints, err := marshalInteger(integers[0].x, integers[0].y)
+	ints, err := marshalInteger(points[0])
 	if err != nil {
 		return nil, err
 	}
 	data = append(data, ints...)
 
 	// LineTo with command count == remaining points
-	cmd, err = MakeCommandInteger(LineTo, uint32(len(integers)-1))
+	cmd, err = MakeCommandInteger(LineTo, uint32(len(points)-1))
 	if err != nil {
 		return nil, err
 	}
 	data = append(data, uint32(cmd))
 
 	// remaining points
-	for i := 1; i < len(integers); i++ {
+	for i := 1; i < len(points); i++ {
 		// points are relative to the previous point
-		prev := integers[i-1]
-		ints, err := marshalInteger(
-			integers[i].x-prev.x,
-			integers[i].y-prev.y)
+		prev := points[i-1]
+		ints, err := marshalInteger(r2.Point{
+			X: points[i].X - prev.X,
+			Y: points[i].Y - prev.Y,
+		})
 
 		if err != nil {
 			return nil, err
@@ -116,10 +116,10 @@ func marshalLineString(v geojson.LineString, transform ToIntegers) ([]uint32, er
 	return data, nil
 }
 
-func marshalMultiLineString(v geojson.MultiLineString, transform ToIntegers) ([]uint32, error) {
+func marshalMultiLineString(v geojson.MultiLineString, project Project) ([]uint32, error) {
 	var linestrings []uint32
 	for _, line := range v {
-		data, err := marshalLineString(line, transform)
+		data, err := marshalLineString(line, project)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +128,7 @@ func marshalMultiLineString(v geojson.MultiLineString, transform ToIntegers) ([]
 	return linestrings, nil
 }
 
-func marshalPolygon(v geojson.Polygon, transform ToIntegers) ([]uint32, error) {
+func marshalPolygon(v geojson.Polygon, project Project) ([]uint32, error) {
 	if len(v) < 1 {
 		return nil, fmt.Errorf("polygon must consist of at least an exterior ring")
 	}
@@ -143,7 +143,7 @@ func marshalPolygon(v geojson.Polygon, transform ToIntegers) ([]uint32, error) {
 		}
 
 		// A polygon loop is a linestring with a trailing ClosePath command.
-		linestring, err := marshalLineString(loop[:len(loop)-1], transform)
+		linestring, err := marshalLineString(loop[:len(loop)-1], project)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal loop '%d': %w", i, err)
 		}
@@ -158,10 +158,10 @@ func marshalPolygon(v geojson.Polygon, transform ToIntegers) ([]uint32, error) {
 	return data, nil
 }
 
-func marshalMultiPolygon(v geojson.MultiPolygon, transform ToIntegers) ([]uint32, error) {
+func marshalMultiPolygon(v geojson.MultiPolygon, project Project) ([]uint32, error) {
 	var data []uint32
 	for i, polygon := range v {
-		p, err := marshalPolygon(polygon, transform)
+		p, err := marshalPolygon(polygon, project)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal polygon '%d': %w", i, err)
 		}
@@ -170,12 +170,12 @@ func marshalMultiPolygon(v geojson.MultiPolygon, transform ToIntegers) ([]uint32
 	return data, nil
 }
 
-func marshalPositions(transform ToIntegers, positions ...geojson.Position) ([]uint32, error) {
+func marshalPositions(project Project, positions ...geojson.Position) ([]uint32, error) {
 	var data []uint32
 	for _, pos := range positions {
-		x, y := transform(pos)
+		point := project(pos.LatLng)
 
-		integers, err := marshalInteger(x, y)
+		integers, err := marshalInteger(point)
 		if err != nil {
 			return nil, err
 		}
@@ -184,16 +184,16 @@ func marshalPositions(transform ToIntegers, positions ...geojson.Position) ([]ui
 	return data, nil
 }
 
-func marshalInteger(x, y int32) ([]uint32, error) {
+func marshalInteger(point r2.Point) ([]uint32, error) {
 	data := make([]uint32, 2)
 
-	v, err := MakeParameterInteger(x)
+	v, err := MakeParameterInteger(int32(point.X))
 	if err != nil {
 		return nil, err
 	}
 	data[0] = uint32(v)
 
-	v, err = MakeParameterInteger(y)
+	v, err = MakeParameterInteger(int32(point.Y))
 	if err != nil {
 		return nil, err
 	}
