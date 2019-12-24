@@ -1,6 +1,7 @@
 package mvt
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/everystreet/go-geojson/v2"
@@ -8,19 +9,29 @@ import (
 )
 
 type (
+	// Layers is an ordered list of named layers in a tile.
+	// Layer names must be unique inside a single tile.
+	Layers map[LayerName]Layer
+
 	// Layer is a single layer in a tile. A layer consists of zero or more featues.
 	Layer struct {
 		Extent   uint32
 		Features []Feature
 	}
 
-	// Layers is an ordered list of named layers in a tile.
-	// Layer names must be unique inside a single tile.
-	Layers map[LayerName]Layer
-
 	// LayerName is a string.
 	LayerName string
 )
+
+// Validate the set of layers.
+func (l Layers) Validate() error {
+	for name, l := range l {
+		if err := l.Validate(); err != nil {
+			return fmt.Errorf("layer '%s' invalid: %w", name, err)
+		}
+	}
+	return nil
+}
 
 // MakeLayer setting the required extent field.
 func MakeLayer(extent uint32, features ...Feature) Layer {
@@ -28,6 +39,24 @@ func MakeLayer(extent uint32, features ...Feature) Layer {
 		Extent:   extent,
 		Features: features,
 	}
+}
+
+// Validate the layer.
+func (l Layer) Validate() error {
+	for _, f := range l.Features {
+		switch t := f.Geometry.(type) {
+		case *UnknownGeometry, *geojson.Point, *geojson.MultiPoint,
+			*geojson.LineString, *geojson.MultiLineString,
+			*geojson.Polygon, *geojson.MultiPolygon:
+		default:
+			return fmt.Errorf("'%t' is not allowed", t)
+		}
+
+		if err := f.Geometry.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Feature represents a geographical feature and optional attributes.
