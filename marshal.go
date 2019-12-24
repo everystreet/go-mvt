@@ -20,7 +20,7 @@ func Marshal(layers Layers, project Project) ([]byte, error) {
 
 	var i int
 	for name, data := range layers {
-		layer, err := marshalLayer(data, string(name))
+		layer, err := marshalLayer(data, string(name), geometry.Project(project))
 		if err != nil {
 			return nil, err
 		}
@@ -32,7 +32,7 @@ func Marshal(layers Layers, project Project) ([]byte, error) {
 	return proto.Marshal(&tile)
 }
 
-func marshalLayer(data Layer, name string) (*spec.Tile_Layer, error) {
+func marshalLayer(data Layer, name string, project geometry.Project) (*spec.Tile_Layer, error) {
 	var version uint32 = 2
 	layer := spec.Tile_Layer{
 		Version: &version,
@@ -40,13 +40,13 @@ func marshalLayer(data Layer, name string) (*spec.Tile_Layer, error) {
 		Extent:  &data.Extent,
 	}
 
-	if err := marshalFeatures(data.Features, &layer); err != nil {
+	if err := marshalFeatures(data.Features, project, &layer); err != nil {
 		return nil, err
 	}
 	return &layer, nil
 }
 
-func marshalFeatures(features []Feature, layer *spec.Tile_Layer) error {
+func marshalFeatures(features []Feature, project geometry.Project, layer *spec.Tile_Layer) error {
 	layer.Features = make([]*spec.Tile_Feature, len(features))
 
 	ids := make(map[uint64]struct{})
@@ -60,11 +60,17 @@ func marshalFeatures(features []Feature, layer *spec.Tile_Layer) error {
 			if _, ok = ids[id]; ok {
 				return fmt.Errorf("layer with ID '%d' already exists", id)
 			}
+
 			feature.Id = &id
 			ids[id] = struct{}{}
 		}
 
 		marshalTags(data.Tags, keys, values, &feature)
+
+		if err := marshalGeometry(data.Geometry, project, &feature); err != nil {
+			return fmt.Errorf("failed to marshal geometry: %w", err)
+		}
+
 		layer.Features[i] = &feature
 	}
 
@@ -152,4 +158,14 @@ func marshalKeyValue(value interface{}) (*spec.Tile_Value, error) {
 	default:
 		return nil, fmt.Errorf("unsupported type '%t'", v)
 	}
+}
+
+func marshalGeometry(geo geojson.Geometry, project geometry.Project, feature *spec.Tile_Feature) error {
+	buf, err := geometry.Marshal(geo, project)
+	if err != nil {
+		return err
+	}
+
+	feature.Geometry = buf
+	return nil
 }
